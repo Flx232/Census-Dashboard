@@ -12,9 +12,6 @@
 ## Data Analysis
 - Delimiter = '|'
 - Header starts with '#'
-- Find GDP data per country for x years.
-  - https://www.kaggle.com/datasets/holoong9291/gdp-of-all-countries19602020
-  - Looks great
 ## Plan
 ### Evaluating Data
 - First understand the rows in idb5yr file
