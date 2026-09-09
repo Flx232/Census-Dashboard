@@ -1,9 +1,12 @@
 idb5yr*
 idbsingleyear*
-gdp_1960_2020*
+API_NY.GDP.MKTP.CD_DS2_en_csv_v2_329227.csv
+countries_codes_and_coordinates.csv
+
 /bin
 /lib
 /include
 /lib64
+/share
 
 pyvenv.cfg

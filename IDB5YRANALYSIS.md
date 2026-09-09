@@ -3,7 +3,7 @@
 - YR: Year of recording
 - GEO_ID: Unique ID of geographic location
 - AREA_KM2: Area of geographic location
-- ASFR (AGE-RANGE): Age specific fertility rate
+- ASFR (AGE-RANGE): Age specific fertility rate. Number of live births during a year per 1,000 females age at midyear.
 - BIRTHS: Total Number of Live Births
   - BIRTHS (AGE-RANGE): Births to females age range
 - CBR: Crude birth rate: Live births per 1,000 midyear population
