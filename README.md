@@ -1,5 +1,5 @@
 # Midterm
-## Goals:
+## Interest:
 - Countries that skew young, middle-age, or older
 - Population increase or decrease (country, region)
 - Fertility rates (country, region)
@@ -12,6 +12,11 @@
 ## Data Analysis
 - Delimiter = '|'
 - Header starts with '#'
+## Hypotheses
+- There is a direct correlation between number of Births, life expectancy at birth and GDP
+- Migrants do not increase fertility rates nor improve population trend
+- Countries that skew young have lower GDP
+- Country skews middle_age and older as age of births increase
 ## Plan
 ### Evaluating Data
 - First understand the rows in idb5yr file
