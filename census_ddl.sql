@@ -5,6 +5,8 @@ set search_path to pop_census;
 create table country (
     country_id serial primary key,
     alpha2 varchar(2) not null,
+    alpha3 varchar(3) not null,
+    area int,
     country_name varchar(350) not null
 );
 
