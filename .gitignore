@@ -14,3 +14,5 @@ countries_codes_and_coordinates.csv
 *.pyc
 
 pyvenv.cfg
+.venv
+.env

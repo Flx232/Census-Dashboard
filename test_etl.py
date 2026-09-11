@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 import pytest
 from unittest.mock import MagicMock
-from etl import ETLProcessor, CountryETLProcessor
+from etl import ETLProcessor, CountryETLProcessor, CountryYrETLProcessor, CountryYrIDB5YrETLProcessor, GDPDataETLProcessor, AgeDataETLProcessor
 from etl import Transformer
-from mock_data_etl import generate_idb5yr, generate_cc_cn
+from mock_data_etl import generate_idb5yr, generate_cc_cn, generate_countries, generate_country_yr, generate_gdp
 
 @pytest.fixture
 def idb5yr():
@@ -15,11 +15,24 @@ def cc_cn():
     return generate_cc_cn()
 
 @pytest.fixture
+def countries():
+    return generate_countries()
+
+@pytest.fixture
+def country_yr():
+    return generate_country_yr()
+
+@pytest.fixture
+def gdp():
+    return generate_gdp()
+
+@pytest.fixture
 def transformer():
     return Transformer()
 
 def generate_etl_processor():
     processor = ETLProcessor(
+        None,
         None,
         None,
         Transformer(),
@@ -36,51 +49,48 @@ def generate_country_etl_processor():
     processor.extract_csv = MagicMock(return_value=[generate_cc_cn(), generate_idb5yr()])
     return processor
 
-# def generate_movie_etl_processor():
-#     processor = MovieETLProcessor(
-#         None,
-#         None,
-#         Transformer(),
-#     )
-#     processor.extract_csv = MagicMock(return_value=[generate_movies_csv(), generate_links_csv()])
-#     return processor
+def generate_country_yr_etl_processor():
+    processor = CountryYrETLProcessor(
+        None,
+        None,
+        Transformer(),
+    )
+    processor.extract_csv = MagicMock(return_value=[generate_idb5yr()])
+    processor.extract_sql = MagicMock(return_value=generate_countries())
+    return processor
 
-# def generate_genre_etl_processor():
-#     processor = GenreETLProcessor(
-#         None,
-#         None,
-#         Transformer(),
-#     )
-#     processor.extract_csv = MagicMock(return_value=[generate_movies_csv()])
-#     return processor
+def generate_country_yr_IDB5Yr_etl_processor():
+    processor = CountryYrIDB5YrETLProcessor(
+        None,
+        None,
+        ['NIM', 'SEXRATIO', 'NATINCR', 'DEATHS'],
+        Transformer(),
+        ''
+    )
+    processor.extract_csv = MagicMock(return_value=[generate_idb5yr()])
+    processor.extract_sql = MagicMock(return_value=[generate_countries(), generate_country_yr()])
+    return processor
 
-# def generate_movie_genre_etl_processor():
-#     processor = MovieGenreETLProcessor(
-#         None,
-#         None,
-#         Transformer(),
-#     )
-#     processor.extract_csv = MagicMock(return_value=[generate_movies_csv()])
-#     processor.extract_genre_sql = MagicMock(return_value=generate_genre_sql())
-#     return processor
+def generate_gdp_etl_processor():
+    processor = GDPDataETLProcessor(
+        None,
+        None,
+        Transformer()
+    )
+    processor.extract_csv = MagicMock(return_value=[generate_gdp()])
+    processor.extract_sql = MagicMock(return_value=[generate_countries(), generate_country_yr()])
+    return processor
 
-# def generate_rating_etl_processor():
-#     processor = RatingETLProcessor(
-#         None,
-#         "",
-#         Transformer(),
-#     )
-#     processor.extract_csv = MagicMock(return_value=[generate_ratings_csv()])
-#     return processor
+def generate_age_etl_processor():
+    processor = AgeDataETLProcessor(
+        None,
+        None,
+        Transformer()
+    )
+    processor.extract_csv = MagicMock(return_value=[generate_idb5yr()])
+    processor.extract_sql = MagicMock(return_value=[generate_countries(), generate_country_yr()])
+    return processor
 
-# def generate_tag_etl_processor():
-#     processor = TagETLProcessor(
-#         None,
-#         "",
-#         Transformer(),
-#     )
-#     processor.extract_csv = MagicMock(return_value=[generate_tags_csv()])
-#     return processor
 
 class TestTransformer:
     def test_get_alpha2_from_geo_id(self, transformer, idb5yr):
@@ -186,73 +196,56 @@ class TestTransformer:
         df = transformer.convert_type(df, 'area', int)
         assert df['area'].dtype == int
 
-    # def test_fill_na(self):
-    #     df = self.transformer.merge_tables(self.movies, self.links, "inner", "movieId")
-    #     df = self.transformer.remove_column(df, "genres")
-    #     df = self.transformer.rename_column(df, ['movieId', 'imdbId', 'tmdbId'], ['movie_id', 'imdb_id', 'tmdb_id'])
-    #     df = self.transformer.extract_year(df, 'title', 'release_year')
-    #     length = len(df)
-    #     num_columns = len(df.columns)
-    #     assert df['release_year'].isna().any() == True
-    #     df = self.transformer.fill_na(df, 'release_year', '0000')
-    #     assert df['release_year'].isna().any() == False
-    #     assert len(df) == length
-    #     assert len(df.columns) == num_columns
+    def test_map_id_to_alpha_2(self, transformer, countries, idb5yr):
+        idb5yr = transformer.get_alpha2_from_geo_id(idb5yr)
+        length = len(idb5yr)
+        df = transformer.map_id_to_alpha_2(countries, idb5yr)
+        assert len(df) == length
+        assert 'COUNTRY_ID' in df.columns
+        assert df['COUNTRY_ID'].dtype == int
 
-    # def test_convert_type(self):
-    #     df = self.transformer.merge_tables(self.movies, self.links, "inner", "movieId")
-    #     df = self.transformer.remove_column(df, "genres")
-    #     df = self.transformer.rename_column(df, ['movieId', 'imdbId', 'tmdbId'], ['movie_id', 'imdb_id', 'tmdb_id'])
-    #     df = self.transformer.extract_year(df, 'title', 'release_year')
-    #     df = self.transformer.fill_na(df, 'release_year', '0000')
-    #     df = self.transformer.convert_type(df, 'release_year', 'int')
-    #     assert df['release_year'].dtype == int
+    def test_merge_country_yr_df(self, transformer, countries, country_yr, idb5yr):
+        length = len(idb5yr)
+        idb5yr = transformer.get_alpha2_from_geo_id(idb5yr)
+        df = transformer.map_id_to_alpha_2(countries, idb5yr)
+        df = transformer.rename_column(df, ['YR', 'COUNTRY_ID'], ['yr', 'country_id'])
+        df = transformer.merge_country_yr_df(country_yr, df)
+        assert len(df) == length
+        assert 'country_id' in df.columns
+        assert df['country_id'].dtype == int
 
-    # def test_clean_title(self):
-    #     df = self.transformer.merge_tables(self.movies, self.links, "inner", "movieId")
-    #     df = self.transformer.remove_column(df, "genres")
-    #     df = self.transformer.rename_column(df, ['movieId', 'imdbId', 'tmdbId'], ['movie_id', 'imdb_id', 'tmdb_id'])
-    #     df = self.transformer.extract_year(df, 'title', 'release_year')
-    #     df = self.transformer.fill_na(df, 'release_year', '0000')
-    #     df = self.transformer.convert_type(df, 'release_year', 'int')
-    #     df = self.transformer.clean_title(df)
-    #     assert df['title'].head(1).item() == 'Toy Story'
+    def test_drop_dup(self, transformer, countries, country_yr, idb5yr):
+        length = len(idb5yr)
+        idb5yr = transformer.get_alpha2_from_geo_id(idb5yr)
+        df = transformer.map_id_to_alpha_2(countries, idb5yr)
+        df = transformer.rename_column(df, ['YR', 'COUNTRY_ID'], ['yr', 'country_id'])
+        df = transformer.merge_country_yr_df(country_yr, df)
+        df = transformer.drop_dup(df)
+        assert len(df) == length-2
+    
+    def test_drop_na(self, transformer, countries, country_yr, idb5yr):
+        idb5yr = transformer.get_alpha2_from_geo_id(idb5yr)
+        df = transformer.map_id_to_alpha_2(countries, idb5yr)
+        df = transformer.rename_column(df, ['YR', 'COUNTRY_ID'], ['yr', 'country_id'])
+        df = transformer.merge_country_yr_df(country_yr, df)
+        df = transformer.drop_dup(df)
+        df = transformer.drop_na(df)
+        assert len(df) == 8
 
-    # def test_split_string(self):
-    #     series = self.transformer.split_string(self.movies, 'genres')
-    #     assert series.dtype == list
+    def test_melt_year(self, transformer, gdp):
+        df = transformer.melt_year(gdp)
+        assert len(df.columns) == 4
+        assert 'YR' in df.columns
+        assert df['YR'].dtype == pd.StringDtype(storage='python', na_value=np.nan)
 
-    # def test_extract_genres(self):
-    #     series = self.transformer.split_string(self.movies, 'genres')
-    #     df = self.transformer.extract_genres(series)
-    #     assert len(df) == len(self.genres)
-    #     assert len(df['name']) == len(self.genres['name'])
-
-    # def test_get_genre_dict(self):
-    #     genres_dict = self.transformer.create_genres_dict(self.genres)
-    #     assert type(genres_dict) == dict
-    #     assert len(genres_dict) == 10
-
-    # def test_map_movie_genre(self):
-    #     movie = self.transformer.rename_column(self.movies, ['movieId'], ['movie_id'])
-    #     length = len(self.transformer.split_string(self.movies, 'genres').explode())
-    #     series = self.transformer.split_string(movie, 'genres')
-    #     genres_dict = self.transformer.create_genres_dict(self.genres)
-    #     df = self.transformer.map_movie_genre(movie, genres_dict, series)
-    #     df = self.transformer.remove_column(df, 'genres')
-    #     assert len(df) == length
-    #     assert len(df.columns) == 2
-    #     assert (df.columns == ['movie_id', 'genre_id']).all() == True
-    #     assert df['genre_id'].dtype == int
-    #     assert df['movie_id'].dtype == int
-
-    # def test_convert_s_to_date(self):
-    #     num_columns = len(self.ratings.columns)
-    #     length = len(self.ratings)
-    #     df = self.transformer.convert_s_to_date(self.ratings, 'timestamp', 'rating_date')
-    #     assert df['rating_date'].dtype == 'datetime64[s]'
-    #     assert len(df.columns) == num_columns+1
-    #     assert len(df) == length
+    def test_map_id_to_alpha_3(self, transformer, countries, gdp):
+        df = transformer.melt_year(gdp)
+        length = len(df)
+        df = transformer.rename_column(df, ['YR', 'Country Code'], ['yr', 'alpha3'])
+        df = transformer.map_id_to_alpha_3(countries, df)
+        assert len(df) == length
+        assert 'country_id' in df.columns
+        assert df['country_id'].dtype == int
 
 
 class TestETLProcessor:
@@ -281,87 +274,82 @@ class TestCountryETLProcessor:
         assert df['alpha3'].dtype == pd.StringDtype(storage='python', na_value=np.nan)
 
 
-# class TestMovieETLProcessor:
-#     processor = generate_movie_etl_processor()
-#     def test_extract(self):
-#         movies, links = self.processor.extract()
-#         assert len(movies) == 10
-#         assert len(links) == 10
+class TestCountryYrETLProcessor:
+    processor = generate_country_yr_etl_processor()
+    def test_extract(self):
+        countries, idb5yr = self.processor.extract()
+        assert len(countries) == 12
+        assert len(idb5yr[0]) == 15
 
-#     def test_transform(self):
-#         movies, links = self.processor.extract()
-#         df = self.processor.transform(movies, links)
-#         assert len(df) == 10
-#         assert len(df.columns) == 5
-#         assert (df.columns == ['movie_id', 'title', 'imdb_id', 'tmdb_id', 'release_year']).all() == True
-#         assert df['movie_id'].dtype == int
-#         assert df['title'].dtype == pd.StringDtype(storage='python', na_value=np.nan)
-#         assert df['release_year'].dtype == int
-#         assert df['imdb_id'].dtype == int
-#         assert df['tmdb_id'].dtype == float
+    def test_transform(self):
+        countries, idb5yr = self.processor.extract()
+        idb5yr = idb5yr[0]
+        df = self.processor.transform(countries, idb5yr)
+        assert len(df) == 13
+        assert len(df.columns) == 2
+        assert (df.columns == ['yr', 'country_id']).all() == True
+        assert df['yr'].dtype == int
+        assert df['country_id'].dtype == int
 
 
-# class TestGenreETLProcessor:
-#     processor = generate_genre_etl_processor()
-#     def test_extract(self):
-#         df = self.processor.extract()[0]
-#         assert len(df) == 10
+class TestCountryYrIDB5YrETLProcessor:
+    processor = generate_country_yr_IDB5Yr_etl_processor()
+    def test_extract(self):
+        country, country_yr, idb5yr = self.processor.extract()
+        assert len(country) == 12
+        assert len(idb5yr[0]) == 15
+        assert len(country_yr) == 13
 
-#     def test_transform(self):
-#         df = self.processor.extract()[0]
-#         df = self.processor.transform(df)
-#         assert len(df) == 10
-#         assert len(df.columns) == 1
-#         assert (df.columns == ['name']).all() == True
-#         assert df['name'].dtype == pd.StringDtype(storage='python', na_value=np.nan)
+    def test_transform(self):
+        country, country_yr, idb5yr = self.processor.extract()
+        idb5yr = idb5yr[0]
+        df = self.processor.transform(country, country_yr, idb5yr)
+        assert len(df) == 8
+        assert len(df.columns) == 5
+        assert (df.columns == ['nim', 'sexratio', 'natincr', 'deaths', 'country_yr_id']).all() == True
+        assert df['country_yr_id'].dtype == int
+        assert df['nim'].dtype == float
+        assert df['deaths'].dtype == float
+        assert df['natincr'].dtype == float
+        assert df['sexratio'].dtype == float
 
 
-# class TestMovieGenreETLProcessor:
-#     processor = generate_movie_genre_etl_processor()
-#     def test_extract(self):
-#         movies, genres = self.processor.extract()
-#         assert len(movies[0]) == 10
-#         assert len(genres) == 10
+class TestGDPDataETLProcessor:
+    processor = generate_gdp_etl_processor()
+    def test_extract(self):
+        country, country_yr, gdp = self.processor.extract()
+        assert len(country) == 12
+        assert len(gdp[0]) == 12
+        assert len(country_yr) == 13
 
-#     def test_transform(self):
-#         movies, genres = self.processor.extract()
-#         df = self.processor.transform(movies[0], genres)
-#         assert len(df) == 25
-#         assert len(df.columns) == 2
-#         assert (df.columns == ['movie_id', 'genre_id']).all() == True
-#         assert df['movie_id'].dtype == int
-#         assert df['genre_id'].dtype == int
+    def test_transform(self):
+        country, country_yr, gdp = self.processor.extract()
+        gdp = gdp[0]
+        df = self.processor.transform(country, country_yr, gdp)
+        assert len(df) == 2
+        assert len(df.columns) == 2
+        assert (df.columns == ['country_yr_id', 'gdp']).all() == True
+        assert df['country_yr_id'].dtype == int
+        assert df['gdp'].dtype == float
 
-# class TestRatingETLProcessor:
-#     processor = generate_rating_etl_processor()
-#     def test_extract(self):
-#         df = self.processor.extract()[0]
-#         assert len(df) == 7
+class TestAgeDataETLProcessor:
+    processor = generate_age_etl_processor()
+    def test_extract(self):
+        country, country_yr, idb5yr = self.processor.extract()
+        assert len(country) == 12
+        assert len(idb5yr[0]) == 15
+        assert len(country_yr) == 13
 
-#     def test_transform(self):
-#         df = self.processor.extract()[0]
-#         df = self.processor.transform(df)
-#         assert len(df) == 7
-#         assert len(df.columns) == 4
-#         assert (df.columns == ['user_id', 'movie_id', 'rating', 'rating_date']).all() == True
-#         assert df['user_id'].dtype == int
-#         assert df['movie_id'].dtype == int
-#         assert df['rating'].dtype == float
-#         assert df['rating_date'].dtype == 'datetime64[s]'
-
-# class TestTagETLProcessor:
-#     processor = generate_tag_etl_processor()
-#     def test_extract(self):
-#         df = self.processor.extract()[0]
-#         assert len(df) == 8
-
-#     def test_transform(self):
-#         df = self.processor.extract()[0]
-#         df = self.processor.transform(df)
-#         assert len(df) == 8
-#         assert len(df.columns) == 4
-#         assert (df.columns == ['user_id', 'movie_id', 'tag', 'tag_date']).all() == True
-#         assert df['user_id'].dtype == int
-#         assert df['movie_id'].dtype == int
-#         assert df['tag'].dtype == pd.StringDtype(storage='python', na_value=np.nan)
-#         assert df['tag_date'].dtype == 'datetime64[s]'
+    def test_transform(self):
+        country, country_yr, idb5yr = self.processor.extract()
+        idb5yr = idb5yr[0]
+        df = self.processor.transform(country, country_yr, idb5yr)
+        assert len(df) == 13
+        assert len(df.columns) == 6
+        assert (df.columns == ['country_yr_id', 'pop_young', 'pop_middle', 'pop_old', 'births_young', 'births_middle']).all() == True
+        assert df['country_yr_id'].dtype == int
+        assert df['pop_young'].dtype == float
+        assert df['pop_middle'].dtype == float
+        assert df['pop_old'].dtype == float
+        assert df['births_young'].dtype == float
+        assert df['births_middle'].dtype == float

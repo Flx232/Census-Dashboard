@@ -25,3 +25,28 @@ def generate_cc_cn():
         "Latitude Average": ["19.5", "1.3667", "32", "40", "16", "49", "50.8333", "22.25", "21.5", "60", "7", "-13.5833"],
         "Longitude Average": ["-80.5", "103.8", "35.25", "60", "-24", "32", "4", "114.1667", "-80", "-95", "81", "-172.3333"],
     })
+
+def generate_countries():
+    return pd.DataFrame({
+        "country_id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        "country_name": [
+            "Cayman Islands", "Singapore", 
+            "Palestinian Territory, Occupied", "Turkmenistan", 
+            "Cape Verde", "Ukraine","Belgium", "Hong Kong",
+            "Cuba", "Canada", "Sri Lanka", "Samoa"],
+        "alpha2": ["KY", "SG", "XW", "TM", "CV", "UA", "BE", "HK", "CU", "CA", "LK", "WS"],
+        "alpha3": ["CYM", "SGP", "PSE", "TKM", "CPV", "UKR", "BEL", "HKG", "CUB", "CAN", "LKA", "WSM"],
+        "area": [264, 709, 5640, 469930, 4033, 579330, 30278, 1073, 109820, 9093507, 64630, 2821]
+    })
+
+def generate_country_yr():
+    return pd.DataFrame({
+        "country_yr_id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        "country_id": [1, 2, 3, 4, 5, 6, 7, 6, 8, 9, 10, 11, 12],
+        "yr": [1954, 2069, 2028, 2056, 1986, 1963, 2020, 1963, 1955, 2025, 1957, 2086, 2078]
+    })
+
+def generate_gdp():
+    gdp_df = pd.read_csv(os.path.join(DATA_DIR, 'API_NY.GDP.MKTP.CD_DS2_en_csv_v2_329227.csv'))
+    return gdp_df[gdp_df['Country Code'].isin(['BEL','CAN','CPV','CUB','CYM','HKG','LKA','PSE','SGP','TKM','UKR','WSM'])]
+    

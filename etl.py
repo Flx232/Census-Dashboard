@@ -12,7 +12,8 @@ class Transformer:
         return df.rename(columns={keys[i]:new_keys[i] for i in range(len(keys))})
 
     def get_alpha2_from_geo_id(self, df):
-        nation_code = df[df['GEO_ID'].str[0:3] == 'W14']
+        nation_code = df[df['GEO_ID'].str[0:3] == 'W14'].reset_index(drop=True)
+        nation_code = nation_code.copy()
         nation_code['ALPHA2'] = nation_code['GEO_ID'].str[9:11]
         return nation_code
 
@@ -44,56 +45,55 @@ class Transformer:
         df[key] = df[key].astype(type)
         return df
 
-    # def extract_year(self, df, key='title', new_column='release_year'):
-    #     df[new_column] = df[key].str.extract(r"\((\d{4})\)")
-    #     return df
+    def map_id_to_alpha_2(self, country, country_info):
+        alpha2_country_map = country[['country_id', 'alpha2']].set_index('alpha2')
+        country_info['COUNTRY_ID'] = country_info['ALPHA2'].map(alpha2_country_map.to_dict()['country_id'])
+        return country_info
 
-    # def fill_na(self, df, key, fill_value):
-    #     df[key] = df[key].fillna(fill_value)
-    #     return df
+    def merge_country_yr_df(self, country_yr, df):
+        return df.merge(country_yr, on=['yr', 'country_id'], how='right')
 
-    # def clean_title(self, df, key='title'):
-    #     df[key] = df[key].str.replace(r"\s*\((\d{4})\)", '', regex=True)
-    #     return df
+    def melt_year(self, df):
+        return pd.melt(df, id_vars=['Country Name', 'Country Code'], value_vars=[str(year) for year in range(1960, 2025)], var_name='YR', value_name='GDP').dropna()
 
-    # def convert_s_to_date(self, df, key, new_column):
-    #     df[new_column] = pd.to_datetime(df[key], unit="s", yearfirst=True)
-    #     return df
+    def map_id_to_alpha_3(self, country, country_info):
+        alpha3_country_map = country[['country_id', 'alpha3']].set_index('alpha3')
+        country_info['country_id'] = country_info['alpha3'].map(alpha3_country_map.to_dict()['country_id'])
+        return country_info
 
-    # def split_string(self, df, key):
-    #     return df[key].str.split('|')
+    def drop_na(self, df, subset=None):
+        if subset is None:
+            return df.dropna()
+        return df.dropna(subset=subset)
 
-    # def extract_genres(self, series):
-    #     return pd.DataFrame({"name":series.explode().unique()})
-
-    # def create_genres_dict(self, genres):
-    #     return genres.set_index("name").to_dict()['genre_id']
-
-    # def map_movie_genre(self, movies, genres_dict, series):
-    #     movies['genres'] = series
-    #     movie_genre = movies[['movie_id', 'genres']].explode(column='genres')
-    #     movie_genre['genre_id'] = movie_genre['genres'].map(genres_dict)
-    #     return movie_genre
-
-    # def merge_tables(self, table1, table2, how, on):
-    #     return table1.merge(table2, how=how, on=on)
 
 class ETLProcessor:
     def __init__(
         self,
         cnx,
         csv_paths,
+        sql_queries,
         transformer: Transformer,
     ):
         self._cnx = cnx
         self._transformer = transformer
         self._csv_paths = csv_paths
+        self._sql_queries = sql_queries
     
     def extract_csv(self):
         if len(self._csv_paths) == 1:
             return pd.read_csv(self._csv_paths[0])
         else:
             return (pd.read_csv(csv_path) for csv_path in self._csv_paths)
+
+    def extract_sql(self):
+        if self._sql_queries is None:
+            return
+        if len(self._sql_queries) == 1:
+            return pd.read_sql(self._sql_queries[0], self._cnx)
+        else:
+            return [pd.read_sql(sql_query, self._cnx) for sql_query in self._sql_queries]
+
 
     def extract(self):
         df = self.extract_csv()[0]
@@ -105,12 +105,13 @@ class ETLProcessor:
             self._cnx, 
             if_exists="append", 
             index=False, 
-            schema="movielens"
+            schema="pop_census"
         )
+
 
 class CountryETLProcessor(ETLProcessor):
     def __init__(self, cnx, csv_paths, transformer):
-        super().__init__(cnx, csv_paths, transformer)
+        super().__init__(cnx, csv_paths, None, transformer)
 
     def extract(self):
         country_names, idb5yr = self.extract_csv()
@@ -136,103 +137,129 @@ class CountryETLProcessor(ETLProcessor):
         df = self.transform(country_names, idb5yr)
         self.load(df, 'country')
 
+
 class CountryYrETLProcessor(ETLProcessor):
     def __init__(self, cnx, csv_paths, transformer):
-        super().__init__(cnx, csv_paths, transformer)
-
-    def extract_genre_sql(self):
-        sql = """select * from country;"""
-        return pd.read_sql(sql, self._cnx)
+        self.sql_queries = ["select * from country;"]
+        super().__init__(cnx, csv_paths, self.sql_queries, transformer)
 
     def extract(self):
         idb5yr = self.extract_csv()
-        countries = self.extract_genre_sql()
+        countries = self.extract_sql()
         return countries, idb5yr
 
     def transform(self, countries, idb5yr):
-        df = idb5yr[['YR', 'GEO_ID']]
-        return self._transformer.clean_title(df)
+        idb5yr = self._transformer.get_alpha2_from_geo_id(idb5yr)
+        df = self._transformer.map_id_to_alpha_2(countries, idb5yr)
+        df = df[['YR', 'COUNTRY_ID']]
+        columns = df.columns
+        df = self._transformer.rename_column(df, columns, [column.lower() for column in columns])
+        return df
 
     def process(self):
-        movies, links = self.extract()
-        df = self.transform(movies, links)
-        self.load(df, 'movie')
+        countries, idb5yr = self.extract()
+        df = self.transform(countries, idb5yr)
+        self.load(df, 'country_yr')
 
 
-class GenreETLProcessor(ETLProcessor):
-    def __init__(self, cnx, csv_paths, transformer):
-        super().__init__(cnx, csv_paths, transformer)
+class CountryYrIDB5YrETLProcessor(ETLProcessor):
+    def __init__(self, cnx, csv_paths, columns, transformer, table):
+        self.sql_queries = [
+            "select * from country;",
+            "select * from country_yr;"
+        ]
+        super().__init__(cnx, csv_paths, self.sql_queries, transformer)
+        self._columns = columns
+        self._table = table
 
     def extract(self):
-        return self.extract_csv()
+        idb5yr = self.extract_csv()
+        country, country_yr = self.extract_sql()
+        return country, country_yr, idb5yr
 
-    def transform(self, df):
-        genre_series = self._transformer.split_string(df, 'genres')
-        return self._transformer.extract_genres(genre_series)
+    def transform(self, country, country_yr, idb5yr):
+        df = self._transformer.get_alpha2_from_geo_id(idb5yr)
+        df = self._transformer.map_id_to_alpha_2(country, df)
+        df = self._transformer.rename_column(df, ['YR', 'COUNTRY_ID'], ['yr', 'country_id'])
+        df = self._transformer.merge_country_yr_df(country_yr, df)
+        df = self._transformer.drop_dup(df)
+        self._columns.append('country_yr_id')
+        df = df[self._columns]
+        columns = df.columns
+        df = self._transformer.rename_column(df, columns, [column.lower() for column in columns])
+        df = self._transformer.drop_na(df)
+        return df
 
     def process(self):
-        df = self.extract()
-        df = self.transform(df)
-        self.load(df, 'genre')
+        country, country_yr, idb5yr = self.extract()
+        df = self.transform(country, country_yr, idb5yr)
+        self.load(df, self._table)
 
 
-class MovieGenreETLProcessor(ETLProcessor):
+class GDPDataETLProcessor(ETLProcessor):
     def __init__(self, cnx, csv_paths, transformer):
-        super().__init__(cnx, csv_paths, transformer)
-
-    def extract_genre_sql(self):
-        sql = """select * from genre;"""
-        return pd.read_sql(sql, self._cnx)
+        self.sql_queries = [
+            """select * from country;""",
+            """select * from country_yr;"""
+        ]
+        super().__init__(cnx, csv_paths, self.sql_queries, transformer)
 
     def extract(self):
-        movies = self.extract_csv()
-        genres = self.extract_genre_sql()
-        return movies, genres
+        gdp = self.extract_csv()
+        country, country_yr = self.extract_sql()
+        return country, country_yr, gdp
 
-    def transform(self, movies, genres):
-        movies = self._transformer.rename_column(movies, ['movieId'], ['movie_id'])
-        series = self._transformer.split_string(movies, 'genres')
-        genres_dict = self._transformer.create_genres_dict(genres)
-        df = self._transformer.map_movie_genre(movies, genres_dict, series)
-        return self._transformer.remove_column(df, 'genres')
-    
+    def transform(self, country, country_yr, gdp):
+        df = self._transformer.melt_year(gdp)
+        df = self._transformer.rename_column(df, ['YR', 'Country Code'], ['yr', 'alpha3'])
+        df = self._transformer.map_id_to_alpha_3(country, df)
+        df = self._transformer.convert_type(df, 'yr', int)
+        df = self._transformer.merge_country_yr_df(country_yr, df)
+        df = self._transformer.drop_dup(df)
+        df = self._transformer.drop_na(df)
+        df = df[['country_yr_id', 'GDP']]
+        columns = df.columns
+        df = self._transformer.rename_column(df, columns, [column.lower() for column in columns])
+        return df
+
     def process(self):
-        movies, genres = self.extract()
-        df = self.transform(movies, genres)
-        self.load(df, 'movie_genre')
+        country, country_yr, gdp = self.extract()
+        df = self.transform(country, country_yr, gdp)
+        self.load(df, 'gdp_data')
 
 
-class  RatingETLProcessor(ETLProcessor):
+class AgeDataETLProcessor(ETLProcessor):
     def __init__(self, cnx, csv_paths, transformer):
-        super().__init__(cnx, csv_paths, transformer)
+        self.sql_queries = [
+            """select * from country;""",
+            """select * from country_yr;"""
+        ]
+        super().__init__(cnx, csv_paths, self.sql_queries, transformer)
 
     def extract(self):
-        return self.extract_csv()
+        idb5yr = self.extract_csv()
+        country, country_yr = self.extract_sql()
+        return country, country_yr, idb5yr
 
-    def transform(self, df):
-        df = self._transformer.convert_s_to_date(df, 'timestamp', 'rating_date')
-        df = self._transformer.remove_column(df, "timestamp")
-        return self._transformer.rename_column(df, ['userId', 'movieId'], ['user_id', 'movie_id'])
-
-    def process(self):
-        df = self.extract()
-        df = self.transform(df)        
-        self.load(df, 'movie_rating')
-
-
-class  TagETLProcessor(ETLProcessor):
-    def __init__(self, cnx, csv_paths, transformer):
-        super().__init__(cnx, csv_paths, transformer)
-
-    def extract(self):
-        return self.extract_csv()
-
-    def transform(self, df):
-        df = self._transformer.convert_s_to_date(df, 'timestamp', 'tag_date')
-        df = self._transformer.remove_column(df, "timestamp")
-        return self._transformer.rename_column(df, ['userId', 'movieId'], ['user_id', 'movie_id'])
+    def transform(self, country, country_yr, idb5yr):
+        idb5yr = self._transformer.get_alpha2_from_geo_id(idb5yr)
+        df = self._transformer.drop_na(idb5yr)
+        df = self._transformer.map_id_to_alpha_2(country, df)
+        df = self._transformer.rename_column(df, ['YR', 'COUNTRY_ID'], ['yr', 'country_id'])
+        df['POP_YOUNG'] = df[['POP0_4', 'POP5_9', 'POP10_14', 'POP15_19', 'POP20_24', 'POP25_29']].sum(axis=1)
+        df['POP_MIDDLE'] = df[['POP30_34', 'POP35_39', 'POP40_44', 'POP45_49', 'POP50_54', 'POP55_59']].sum(axis=1)
+        df['POP_OLD'] = df[['POP60_64', 'POP65_69', 'POP70_74', 'POP75_79', 'POP80_84', 'POP85_89', 'POP90_94', 'POP95_99', 'POP100_']].sum(axis=1)
+        df['BIRTHS_YOUNG'] = df[['BIRTHS15_19', 'BIRTHS20_24', 'BIRTHS25_29']].sum(axis=1)
+        df['BIRTHS_MIDDLE'] = df[['BIRTHS30_34', 'BIRTHS35_39', 'BIRTHS40_44', 'BIRTHS45_49']].sum(axis=1)
+        df = self._transformer.merge_country_yr_df(country_yr, df)
+        df = self._transformer.drop_dup(df)
+        df = self._transformer.drop_na(df)
+        df = df[['country_yr_id', 'POP_YOUNG', 'POP_MIDDLE', 'POP_OLD', 'BIRTHS_YOUNG', 'BIRTHS_MIDDLE']]
+        columns = df.columns
+        df = self._transformer.rename_column(df, columns, [column.lower() for column in columns])
+        return df
 
     def process(self):
-        df = self.extract()
-        df = self.transform(df)
-        self.load(df, 'tag')
+        country, country_yr, idb5yr = self.extract()
+        df = self.transform(country, country_yr, idb5yr)
+        self.load(df, 'age_data')

@@ -33,14 +33,14 @@ create table general_data(
     nim int,
     sex_ratio decimal(4, 3),
     natincr int,
-    deatjs int,
+    deaths int,
     primary key(country_yr_id)
 );
 
 create table gdp_data(
 	country_yr_id int not null
         references country_yr(country_yr_id),
-    gdp decimal(16, 1),
+    gdp decimal(20, 1),
     primary key(country_yr_id)
 );
 
