@@ -55,7 +55,7 @@ def run():
         gen_processor = CountryYrIDB5YrETLProcessor(
             conn,
             [create_full_path(idb5yr_csv)],
-            ['NIM', 'SEXRATIO', 'NATINCR', 'DEATHS'],
+            ['NIM', 'SEXRATIO', 'NATINCR', 'DEATHS', 'GR'],
             transformer,
             'general_data'
         )

@@ -34,6 +34,7 @@ create table general_data(
     sexratio decimal(25, 5),
     natincr int,
     deaths int,
+    gr int,
     primary key(country_yr_id)
 );
 
