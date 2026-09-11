@@ -17,7 +17,7 @@ def run():
     with engine.connect() as conn:
         sql_query = """
             select alpha2, alpha3, area, 
-            country_name, yr, tfr, imr, e0,
+            country_name, yr, tfr, imr, e0, gr,
             births, nim, sexratio, natincr, deaths,
             gdp, pop, pop_dens, pop_young, pop_middle,
             pop_old, births_young, births_middle
