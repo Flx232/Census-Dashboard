@@ -8,5 +8,11 @@ countries_codes_and_coordinates.csv
 /include
 /lib64
 /share
+/data
+/.pytest_cache
+/__pychache__
+*.pyc
 
 pyvenv.cfg
+.venv
+.env

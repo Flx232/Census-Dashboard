@@ -5,6 +5,8 @@ set search_path to pop_census;
 create table country (
     country_id serial primary key,
     alpha2 varchar(2) not null,
+    alpha3 varchar(3) not null,
+    area int,
     country_name varchar(350) not null
 );
 
@@ -18,9 +20,9 @@ create table country_yr (
 create table fertility_data(
 	country_yr_id int not null
         references country_yr(country_yr_id),
-    tfr decimal(5, 4),
-    imr decimal(3, 2),
-    e0 decimal(4, 2),
+    tfr decimal(25, 5),
+    imr decimal(25, 5),
+    e0 decimal(25, 5),
     births int,
     primary key(country_yr_id)
 );
@@ -29,16 +31,16 @@ create table general_data(
 	country_yr_id int not null
         references country_yr(country_yr_id),
     nim int,
-    sex_ratio decimal(4, 3),
+    sexratio decimal(25, 5),
     natincr int,
-    deatjs int,
+    deaths int,
     primary key(country_yr_id)
 );
 
 create table gdp_data(
 	country_yr_id int not null
         references country_yr(country_yr_id),
-    gdp decimal(16, 1),
+    gdp decimal(25, 5),
     primary key(country_yr_id)
 );
 
@@ -46,7 +48,7 @@ create table pop_data(
 	country_yr_id int not null
         references country_yr(country_yr_id),
     pop int,
-    pop_dens decimal(15, 3),
+    pop_dens decimal(25, 5),
     primary key(country_yr_id)
 );
 
