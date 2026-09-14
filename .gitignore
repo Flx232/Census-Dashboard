@@ -12,6 +12,7 @@ countries_codes_and_coordinates.csv
 /.pytest_cache
 /__pychache__
 *.pyc
+/etc
 
 pyvenv.cfg
 .venv

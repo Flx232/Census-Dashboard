@@ -79,7 +79,7 @@ def run():
         )
         gdp_processor.process()
 
-        print("Populating gdp_data table...")
+        print("Populating age_data table...")
         age_processor = AgeDataETLProcessor(
             conn,
             [create_full_path(idb5yr_csv)],
