@@ -28,9 +28,14 @@ dataset_tab = dcc.Tab(
     label="DataTables",
     children = [
         html.H3('Amalgamated Data of IDB5yr, GDP data and Countries codes'),
+        html.Div([dcc.Dropdown(
+            [year for year in range(AMALGAMATED_DATA['yr'].min(), AMALGAMATED_DATA['yr'].max()+1)],
+            AMALGAMATED_DATA['yr'].max(),
+            id='yr-dropdown',
+        )], style={"width": "15%"}),
         dash_table.DataTable(
-            data=AMALGAMATED_DATA[AMALGAMATED_DATA['yr'] == 2024].to_dict("records"),
-            page_size=25, sort_action="native",
+            id = "amalg-data",
+            page_size=15, sort_action="native",
             style_table={'overflowX': 'scroll'},
         ),
         html.H3(['GDP data from: ',
@@ -42,7 +47,7 @@ dataset_tab = dcc.Tab(
         ),
         dash_table.DataTable(
             data=GDP_DF.to_dict("records"), 
-            page_size=25, sort_action="native",
+            page_size=10, sort_action="native",
             style_table={'overflowX': 'scroll'},
         ),
         html.H3(['IDB5yr data from: ',
@@ -54,7 +59,7 @@ dataset_tab = dcc.Tab(
         ),
         dash_table.DataTable(
             data=IDB_DF[IDB_DF['YR'] == 2024].to_dict("records"), 
-            page_size=25, sort_action="native",
+            page_size=10, sort_action="native",
             style_table={'overflowX': 'scroll'},
         ),
         html.H3(['Countries codes dataset from: ',
@@ -66,7 +71,7 @@ dataset_tab = dcc.Tab(
         ),
         dash_table.DataTable(
             data=COUNTRIES_DF.to_dict("records"), 
-            page_size=25, sort_action="native",
+            page_size=10, sort_action="native",
             style_table={'overflowX': 'scroll'},
         ),
     ]

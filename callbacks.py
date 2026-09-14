@@ -501,3 +501,11 @@ def get_callbacks(app):
             color = 'country_name',
             title=f'GDP vs {quant_key.capitalize()} ({year})',
         )
+
+    @app.callback(
+        Output('amalg-data', 'data'),
+        Input('yr-dropdown', 'value')
+    )
+    def create_amalg_data_table(year):
+        df = AMALGAMATED_DATA[AMALGAMATED_DATA['yr'] == year]
+        return df.to_dict("records")

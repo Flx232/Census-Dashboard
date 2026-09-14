@@ -47,7 +47,7 @@ def bin_lat():
     df['Latitude (average)'] = df['Latitude (average)'].str.strip()
     df['alpha2'] = df['Alpha-2 code'].str.strip()
     bins = [-90, 30, 90]
-    labels = ['North', 'South']
+    labels = ['South', 'North']
     df['Latitude (average)'] = df['Latitude (average)'].astype(float)
     df['sphere'] = pd.cut(df['Latitude (average)'], bins=bins, labels=labels, right=False)
     return df
