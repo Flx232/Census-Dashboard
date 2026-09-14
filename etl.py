@@ -1,5 +1,5 @@
 import pandas as pd
-
+import numpy as np
 
 class Transformer:
     def remove_column(self, df, key):
@@ -187,7 +187,7 @@ class CountryYrIDB5YrETLProcessor(ETLProcessor):
         df = df[self._columns]
         columns = df.columns
         df = self._transformer.rename_column(df, columns, [column.lower() for column in columns])
-        df = self._transformer.drop_na(df)
+        # df = self._transformer.drop_na(df)
         return df
 
     def process(self):
@@ -242,8 +242,7 @@ class AgeDataETLProcessor(ETLProcessor):
         return country, country_yr, idb5yr
 
     def transform(self, country, country_yr, idb5yr):
-        idb5yr = self._transformer.get_alpha2_from_geo_id(idb5yr)
-        df = self._transformer.drop_na(idb5yr)
+        df = self._transformer.get_alpha2_from_geo_id(idb5yr)
         df = self._transformer.map_id_to_alpha_2(country, df)
         df = self._transformer.rename_column(df, ['YR', 'COUNTRY_ID'], ['yr', 'country_id'])
         df['POP_YOUNG'] = df[['POP0_4', 'POP5_9', 'POP10_14', 'POP15_19', 'POP20_24', 'POP25_29']].sum(axis=1)
@@ -253,9 +252,9 @@ class AgeDataETLProcessor(ETLProcessor):
         df['BIRTHS_MIDDLE'] = df[['BIRTHS30_34', 'BIRTHS35_39', 'BIRTHS40_44', 'BIRTHS45_49']].sum(axis=1)
         df = self._transformer.merge_country_yr_df(country_yr, df)
         df = self._transformer.drop_dup(df)
-        df = self._transformer.drop_na(df)
-        df = df[['country_yr_id', 'POP_YOUNG', 'POP_MIDDLE', 'POP_OLD', 'BIRTHS_YOUNG', 'BIRTHS_MIDDLE']]
-        columns = df.columns
+        columns = ['country_yr_id', 'POP_YOUNG', 'POP_MIDDLE', 'POP_OLD', 'BIRTHS_YOUNG', 'BIRTHS_MIDDLE']
+        df = df[columns]
+        # df = df.replace(0, np.nan)
         df = self._transformer.rename_column(df, columns, [column.lower() for column in columns])
         return df
 
