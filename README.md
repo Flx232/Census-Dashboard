@@ -53,6 +53,8 @@
 - Refer to exploratory notebook
 - Utilize tested SQL queries
 - Estimated Time 8 Hours
-  
+## Setting up Environment
+- python -m venv .
+- pip install -r requirements.txt
 
 Total Hours Required: 28-29 hours at least
